@@ -1,0 +1,22 @@
+# Never commit Switch 2 game dumps, extracted assets, compiled game binaries, caches, or saves
+*.nup
+*.nsp
+*.xci
+*.iso
+exefs/
+romfs/
+romfs.bin
+romfs-index.bin
+orbitals.exe
+shader-cache/
+build-cache/
+pipeline-cache.bin
+pipeline-keys.bin
+shader-answers.bin
+shader-programs.bin
+profile/
+nx2navi.log
+dist/
+__pycache__/
+*.pyc
+*.bin

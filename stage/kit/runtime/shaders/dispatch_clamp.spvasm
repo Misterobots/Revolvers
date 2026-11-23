@@ -1,0 +1,80 @@
+; Indirect dispatch clamp (orbitals, after nxnative's "The GPU watchdog and GPU-written dispatch counts").
+; One invocation reads the game's GPU-written group counts (x, y, z) at src[0..2] and writes them to dst[0..2], or
+; zeros when any count is past 65535 or their product past 2^22 threadgroups: garbage counts (billions of groups)
+; kept the GPU busy for good after a stall. Push constant: the word offset of the counts in src (any 4-byte aligned
+; offset of the game's buffer), then the most threadgroups allowed. dst[4..6]: the counts as the game wrote them. Compiled with spirv-as into dispatch_clamp_spv.h.
+               OpCapability Shader
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint GLCompute %main "main"
+               OpExecutionMode %main LocalSize 1 1 1
+               OpDecorate %rta ArrayStride 4
+               OpMemberDecorate %Buf 0 Offset 0
+               OpDecorate %Buf Block
+               OpDecorate %src DescriptorSet 0
+               OpDecorate %src Binding 0
+               OpDecorate %dst DescriptorSet 0
+               OpDecorate %dst Binding 1
+               OpMemberDecorate %PC 0 Offset 0
+               OpMemberDecorate %PC 1 Offset 4
+               OpDecorate %PC Block
+       %void = OpTypeVoid
+         %fn = OpTypeFunction %void
+       %uint = OpTypeInt 32 0
+       %bool = OpTypeBool
+        %rta = OpTypeRuntimeArray %uint
+        %Buf = OpTypeStruct %rta
+       %pBuf = OpTypePointer StorageBuffer %Buf
+        %src = OpVariable %pBuf StorageBuffer
+        %dst = OpVariable %pBuf StorageBuffer
+         %PC = OpTypeStruct %uint %uint
+        %pPC = OpTypePointer PushConstant %PC
+         %pc = OpVariable %pPC PushConstant
+      %pPCu = OpTypePointer PushConstant %uint
+      %pSBu = OpTypePointer StorageBuffer %uint
+         %u0 = OpConstant %uint 0
+         %u1 = OpConstant %uint 1
+         %u2 = OpConstant %uint 2
+      %u_max = OpConstant %uint 65535
+         %u4 = OpConstant %uint 4
+         %u5 = OpConstant %uint 5
+         %u6 = OpConstant %uint 6
+       %main = OpFunction %void None %fn
+      %entry = OpLabel
+        %pob = OpAccessChain %pPCu %pc %u0
+       %base = OpLoad %uint %pob
+        %pom = OpAccessChain %pPCu %pc %u1
+      %u_tot = OpLoad %uint %pom
+         %i1 = OpIAdd %uint %base %u1
+         %i2 = OpIAdd %uint %base %u2
+         %px = OpAccessChain %pSBu %src %u0 %base
+         %py = OpAccessChain %pSBu %src %u0 %i1
+         %pz = OpAccessChain %pSBu %src %u0 %i2
+          %x = OpLoad %uint %px
+          %y = OpLoad %uint %py
+          %z = OpLoad %uint %pz
+         %bx = OpUGreaterThan %bool %x %u_max
+         %by = OpUGreaterThan %bool %y %u_max
+         %bz = OpUGreaterThan %bool %z %u_max
+        %bxy = OpLogicalOr %bool %bx %by
+       %bxyz = OpLogicalOr %bool %bxy %bz
+         %xy = OpIMul %uint %x %y
+       %xyz = OpIMul %uint %xy %z
+         %bt = OpUGreaterThan %bool %xyz %u_tot
+        %bad = OpLogicalOr %bool %bxyz %bt
+         %ox = OpSelect %uint %bad %u0 %x
+         %oy = OpSelect %uint %bad %u0 %y
+         %oz = OpSelect %uint %bad %u0 %z
+         %qx = OpAccessChain %pSBu %dst %u0 %u0
+         %qy = OpAccessChain %pSBu %dst %u0 %u1
+         %qz = OpAccessChain %pSBu %dst %u0 %u2
+               OpStore %qx %ox
+               OpStore %qy %oy
+               OpStore %qz %oz
+         %rx = OpAccessChain %pSBu %dst %u0 %u4
+         %ry = OpAccessChain %pSBu %dst %u0 %u5
+         %rz = OpAccessChain %pSBu %dst %u0 %u6
+               OpStore %rx %x
+               OpStore %ry %y
+               OpStore %rz %z
+               OpReturn
+               OpFunctionEnd
