@@ -24,6 +24,7 @@
 #include "kernel.h"
 #include "nvn_api.h"
 #include "platform/platform.h"
+#include "report.h"
 #include "ui/menu.h"
 #include "vk.h"
 #include "vk_fg.h"
@@ -590,11 +591,11 @@ int vk_present_captured(const uint8_t **px, int *w, int *h, VkFormat *fmt) {
     return ok;
 }
 
-// The captured swapchain image as a PNG (the menu's test hook), RGBA with opaque alpha.
-static void save_capture(const char *path) {
+// The captured swapchain image as tightly packed RGBA with opaque alpha (malloc'd; NULL without memory).
+static uint8_t *capture_rgba(void) {
     size_t n = (size_t)g_cap_w * (size_t)g_cap_h * 4;
     uint8_t *px = malloc(n);
-    if (!px) return;
+    if (!px) return NULL;
     int bgra = g_sc_fmt == VK_FORMAT_B8G8R8A8_UNORM || g_sc_fmt == VK_FORMAT_B8G8R8A8_SRGB;
     if (g_sc_hdr) vk_hdr_to_srgb8(g_cap_ptr, px, n / 4, g_sc_fmt == VK_FORMAT_A2R10G10B10_UNORM_PACK32);
     else for (size_t i = 0; i < n; i += 4) {
@@ -603,6 +604,13 @@ static void save_capture(const char *path) {
         px[i + 2] = g_cap_ptr[i + (bgra ? 0 : 2)];
         px[i + 3] = 255;
     }
+    return px;
+}
+
+// The captured swapchain image as a PNG (the menu's test hook).
+static void save_capture(const char *path) {
+    uint8_t *px = capture_rgba();
+    if (!px) return;
     rt_write_png(path, px, (uint32_t)g_cap_w, (uint32_t)g_cap_h);
     free(px);
     rt_log("gfx: menu test shot %s (%dx%d)", path, g_cap_w, g_cap_h);
@@ -971,7 +979,8 @@ static void present_image(VkImage src, VkImageLayout layout, VkFormat fmt, int w
             rt_log("gfx: dumped frame's presented image -> %s", final_path);
         }
     }
-    int cap = (g_capture || menu_shot) && ensure_capture_buffer();
+    int report_cap = src && report_shot_wanted();   // F8 bug report (report.c): this frame, full size
+    int cap = (g_capture || menu_shot || report_cap) && ensure_capture_buffer();
     int thumb = src && g_th_n && ensure_thumbs();
 
     VkCommandBuffer cb = g_cb[slot];
@@ -1095,6 +1104,10 @@ static void present_image(VkImage src, VkImageLayout layout, VkFormat fmt, int w
         g_cap_h = (int)g_sc_ext.height;
         g_cap_valid = 1;
         if (menu_shot) save_capture(menu_shot);
+        if (report_cap) {
+            uint8_t *px = capture_rgba();
+            if (px) report_shot_take(px, g_cap_w, g_cap_h);
+        }
     }
 out:
     plat_rmutex_unlock(&g_pl);

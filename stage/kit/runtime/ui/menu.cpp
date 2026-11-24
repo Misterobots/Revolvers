@@ -49,6 +49,9 @@ extern "C" {
 #include "perfmon.h"
 #include "platform/platform.h"
 #include "sysinfo.h"
+extern "C" {
+#include "report.h"
+}
 #include "ui/menu.h"
 #include "ui_text.h"
 // host.h and vk.h pull in cpu.h, which is C only: the functions the menu needs from them, as declared there.
@@ -1438,6 +1441,25 @@ static void perf_draw(const MenuTarget *t, float scale) {
     dl->AddText(ImVec2(p.x + pad, p.y + pad), IM_COL32(255, 255, 255, 235), g_perf_text);
 }
 
+// F8 bug report status (report.c), kept out of the frame the report captures
+static bool report_notice_on() {
+    char tmp[8];
+    return !report_shot_wanted() && report_notice(tmp, sizeof tmp);
+}
+
+static void report_notice_draw(const MenuTarget *t, float scale) {
+    char msg[320];
+    if (report_shot_wanted() || !report_notice(msg, sizeof msg)) return;
+    ImDrawList *dl = ImGui::GetForegroundDrawList();
+    ImFont *f = ImGui::GetFont();
+    float px = ImGui::GetFontSize() * 0.8f, pad = 12 * scale, wrap = (float)t->width * 0.6f;
+    ImVec2 ts = f->CalcTextSizeA(px, FLT_MAX, wrap, msg);
+    ImVec2 a(((float)t->width - ts.x) / 2 - pad, 24 * scale), b(a.x + ts.x + pad * 2, a.y + ts.y + pad * 2);
+    dl->AddRectFilled(a, b, ImGui::GetColorU32(kNavy), 8 * scale);
+    dl->AddRect(a, b, ImGui::GetColorU32(kGold), 8 * scale, 0, 1.5f * scale);
+    dl->AddText(f, px, ImVec2(a.x + pad, a.y + pad), TH_TEXT(255), msg, nullptr, wrap);
+}
+
 extern "C" int menu_overlay_frame(uint64_t frame, const MenuTarget *t, const char **shot) {
     *shot = NULL;
     menu_art_start();      // the game's interface textures decode on a worker from the first present on
@@ -1456,7 +1478,7 @@ extern "C" int menu_overlay_frame(uint64_t frame, const MenuTarget *t, const cha
             g_tab_request = 0;
             set_open(1);
             open = true;
-        } else if (!g_perf_mode) {
+        } else if (!g_perf_mode && !report_notice_on()) {
             return 0;
         }
     }
@@ -1506,6 +1528,7 @@ extern "C" int menu_overlay_frame(uint64_t frame, const MenuTarget *t, const cha
     ImGui::NewFrame();
     if (open) layout_menu(t->width, t->height, scale);
     perf_draw(t, scale);
+    report_notice_draw(t, scale);
     ImGui::Render();
     if (open) g_save_pending = opt_save_tick(0);
     g_cost_ns += plat_now_ns() - t0;

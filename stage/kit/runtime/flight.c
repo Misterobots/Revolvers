@@ -19,8 +19,9 @@
 #include "vk.h"
 #include "vk_exec.h"
 #include "platform/platform.h"
+#include "report.h"
 
-#define FLIGHT_POST 30                 // presents recorded after the trigger before the dump starts
+#define FLIGHT_POST 30                // presents recorded after the trigger before the dump starts
 #define FLIGHT_SPIKE_GAP_NS 10000000000ull
 
 // Record columns after frame, time and interval: blocked time per PERF_* kind (us), then the counts.
@@ -40,6 +41,7 @@ typedef struct {
 
 typedef struct {
     int n;                      // records, oldest first
+    int report;                 // an F8 bug report: report_finish packs it once the frames are written
     uint64_t trig_frame, trig_interval_us;
     const char *why;
     char dir[PLAT_PATH_MAX];
@@ -53,6 +55,7 @@ static uint64_t recorded;          // records written so far
 static uint64_t spike_ns, t0_ns;
 static uint64_t dump_at, trig_frame, trig_interval_us, last_spike_ns;
 static const char *trig_why;
+static int trig_report;
 static uint64_t at_frames[16];
 static int n_at;
 static char base_dir[PLAT_PATH_MAX];
@@ -65,8 +68,22 @@ static unsigned env_u(const char *name, unsigned def) {
     return e && *e ? (unsigned)strtoul(e, NULL, 10) : def;
 }
 
+static int report_mode;   // NX2NAVI_FLIGHT off, NX2NAVI_REPORT on: a short ring for F8 bug reports only (report.c)
+
 void flight_init(void) {
-    if (strcmp(cfg_value("NX2NAVI_FLIGHT"), "1")) return;
+    if (strcmp(cfg_value("NX2NAVI_FLIGHT"), "1")) {
+        if (!report_enabled()) return;
+        int n = (int)env_u("NX2NAVI_REPORT_FRAMES", 90);
+        if (n < 32) n = 32;
+        if (n > 600) n = 600;
+        if (!(ring = calloc((size_t)n, sizeof *ring))) return;
+        ring_n = n;
+        thumbs_on = 1;
+        vk_thumbs_enable(ring_n);
+        report_mode = flight_on = 1;
+        rt_log("report: F8 saves a bug report (last %d frames as thumbnails, a screenshot, the log and system info)", ring_n);
+        return;
+    }
     ring_n = (int)env_u("NX2NAVI_FLIGHT_FRAMES", 600);
     if (ring_n < 64) ring_n = 64;
     if (ring_n > 7200) ring_n = 7200;
@@ -177,6 +194,12 @@ static size_t deflate_fixed(const uint8_t *src, size_t n, uint8_t *out, int32_t 
 static uint32_t crc_table[256];
 
 static uint32_t crc(uint32_t c, const uint8_t *p, size_t n) {
+    if (!crc_table[1])
+        for (uint32_t i = 0; i < 256; i++) {
+            uint32_t v = i;
+            for (int k = 0; k < 8; k++) v = v & 1 ? 0xEDB88320u ^ (v >> 1) : v >> 1;
+            crc_table[i] = v;
+        }
     for (size_t i = 0; i < n; i++) c = crc_table[(c ^ p[i]) & 0xFF] ^ (c >> 8);
     return c;
 }
@@ -198,8 +221,33 @@ static uint8_t paeth(int a, int b, int c) {
 
 typedef struct { uint8_t *raw, *z; int32_t *head; } PngBufs;
 
+static int write_png_wh(const char *path, const uint8_t *rgba, uint32_t w, uint32_t h, PngBufs *pb);
 static int write_png(const char *path, const uint8_t *rgba, PngBufs *pb) {
-    const uint32_t w = FLIGHT_THUMB_W, h = FLIGHT_THUMB_H, row = 1 + 3 * w;
+    return write_png_wh(path, rgba, FLIGHT_THUMB_W, FLIGHT_THUMB_H, pb);
+}
+
+// ---- for report.c: a compressed PNG of any size, raw deflate for zip entries, and CRC-32
+int flight_png(const char *path, const uint8_t *rgba, uint32_t w, uint32_t h) {
+    size_t raw_n = (size_t)(1 + 3 * w) * h;
+    PngBufs pb = {malloc(raw_n), malloc(raw_n * 9 / 8 + 64), malloc(sizeof(int32_t) << HBITS)};
+    int ok = pb.raw && pb.z && pb.head && write_png_wh(path, rgba, w, h, &pb);
+    free(pb.raw), free(pb.z), free(pb.head);
+    return ok;
+}
+
+size_t flight_deflate_raw(const uint8_t *src, size_t n, uint8_t *out) {   // out: n * 9 / 8 + 64 bytes
+    int32_t *head = malloc(sizeof(int32_t) << HBITS);
+    if (!head) return 0;
+    size_t zn = deflate_fixed(src, n, out, head);
+    free(head);
+    memmove(out, out + 2, zn - 6);   // no zlib header (2 bytes) or Adler-32 (4)
+    return zn - 6;
+}
+
+uint32_t flight_crc32(const uint8_t *p, size_t n) { return crc(~0u, p, n) ^ ~0u; }
+
+static int write_png_wh(const char *path, const uint8_t *rgba, uint32_t w, uint32_t h, PngBufs *pb) {
+    const uint32_t row = 1 + 3 * w;
     for (uint32_t y = 0; y < h; y++) {
         uint8_t *o = pb->raw + (size_t)y * row;
         o[0] = 4;   // Paeth
@@ -288,6 +336,7 @@ static void dump_main(void *arg) {
            (unsigned long long)j->r[j->n - 1].frame, n_thumbs, (unsigned long long)(plat_now_ms() - t_start),
            recorded ? cost_ns / 1e3 / (double)recorded : 0.0, cost_max_ns / 1e3);
     free(have);
+    if (j->report) report_finish(j->dir, j->trig_frame);
     free(j);
     return;
 }
@@ -300,16 +349,21 @@ static void start_dump(void) {
     j->trig_frame = trig_frame;
     j->trig_interval_us = trig_interval_us;
     j->why = trig_why;
+    j->report = trig_report;
     for (int i = 0; i < n; i++) j->r[i] = ring[(recorded - (uint64_t)n + (uint64_t)i) % (uint64_t)ring_n];
     struct tm st;
     plat_local_time(&st);
-    snprintf(j->dir, sizeof j->dir, "%s/%04d%02d%02d-%02d%02d%02d-f%llu", base_dir, st.tm_year + 1900, st.tm_mon + 1,
-             st.tm_mday, st.tm_hour, st.tm_min, st.tm_sec, (unsigned long long)trig_frame);
+    if (j->report) report_frames_dir(j->dir, sizeof j->dir);   // <report>/frames, named when F8 was pressed
+    else
+        snprintf(j->dir, sizeof j->dir, "%s/%04d%02d%02d-%02d%02d%02d-f%llu", base_dir, st.tm_year + 1900, st.tm_mon + 1,
+                 st.tm_mday, st.tm_hour, st.tm_min, st.tm_sec, (unsigned long long)trig_frame);
     if (!plat_thread_spawn(dump_main, j, "flight dump", 0)) rt_log("flight: cannot start the dump thread"), free(j);
 }
 
 static void trigger(uint64_t frame, uint64_t interval_ns, const char *why) {
     if (dump_at) return;   // one dump pending at a time; its window covers this frame
+    trig_report = !strcmp(why, "F8") && report_begin(frame);   // F8 with reports on: a bug report around this dump
+    if (report_mode && !trig_report) return;
     trig_frame = frame;
     trig_interval_us = interval_ns / 1000;
     trig_why = why;

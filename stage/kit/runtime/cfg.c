@@ -41,7 +41,7 @@ static const char *const known[] = {
     "COLOR_PRESET", "COLOR_SATURATION", "CONTACT_DEBUG", "CONTACT_SHADOWS", "CORE_DIAG", "CRIT", "CRIT_OUT",
     "DESC_TEMPLATE", "DEVICE_PROFILE", "DISCORD_APP_ID", "DISCORD_IMAGE", "DISCORD_RPC", "DLAA", "DLAA_JITTER", "DLAA_MV", "DLAA_MASKDEBUG", "DLAA_MVDEBUG", "DLAA_OBJMV", "DLAA_SURVEY", "DLAA_TIMES", "DLSS", "DLSS_CHAR_MASK", "DLSS_PRESET", "DLSS_REACTIVE", "DEPTH_EQ", "DISPATCH_CLAMP", "DISPATCH_MAX", "DUMP", "DUMP_BUF", "DUMP_DIR",
     "DUMP_LOG", "DUMP_RAW3D", "BIND_AUDIT", "RETYPE_INT", "RETYPE_3D","STORAGE_OWNS", "AUDIO_CLOCK", "USNAP_PROBE", "GW_PROBE", "DUMP_FILE", "POOL_TRACE", "OQ_READS", "OQ_BOXES", "OQ_WIN", "OQ_WIN_N", "DUMP_HOT_N", "DUMP_NO_DEPTH", "DUMP_SPLIT", "DUMP_SPLIT_ADDR", "DUMP_VSBUF", "DUMP_SPLIT_SINGLE", "DUMP_SPLIT_ROI", "DUMP_SPLIT_T", "RHI_LABELS", "RHI_STAGING", "DUMP_SPLIT_THUMB", "DUMP_VSBUF_MB", "LOG_CS_BINDS", "LOG_TEX_FLAGS", "LOG_MESH", "MESH", "POOL", "NATIVE_TENSOR", "LOG_RCOND", "RCOND_ALL", "LOG_OQ", "OQ_FORCE", "LOG_READS", "DRAWLOG", "DRAWLOG_FROM", "CULL_OFF", "VB_PAD", "QD_VS", "WATCH", "PROD_CS", "OQ_ZFROM", "RENDER_SHARED", "PUSH_GC_OFF", "LOG_RC", "DEPTH_MARGIN", "OQ_WRITE", "INST_ONLY", "RETYPE_CS", "LOG_RT_SIZES", "DUMP_WHITE", "DUMP_AFTER", "SUBMIT_FINISH", "ACQUIRE_WAIT", "CS_FALLBACK", "EXEFS", "FEEDBACK", "FS_WHITE", "GEOMETRY", "HANDLE_OR", "FIX_C0", "FIX_ZERO", "FLIGHT", "FLIGHT_AT", "FLIGHT_DIR", "FLIGHT_FRAMES",
-    "FLIGHT_SPIKE_MS", "FLIGHT_THUMBS", "FLUSH_SPAN", "FOV", "FOV_PATCH", "FG_HUDLESS_SHOW", "FPS60", "FPS_LIMIT", "FRAMEGEN", "FREEZE_IDLE", "FREE_CORES",
+    "FLIGHT_SPIKE_MS", "FLIGHT_THUMBS", "REPORT", "REPORT_FRAMES", "REPORT_URL", "FLUSH_SPAN", "FOV", "FOV_PATCH", "FG_HUDLESS_SHOW", "FPS60", "FPS_LIMIT", "FRAMEGEN", "FREEZE_IDLE", "FREE_CORES",
     "FULLSCREEN", "FXAA", "GAME_ASPECT", "GAME_RES", "GPA", "GPA_EMPTY", "GPL", "GPL_DRAW_BUILD", "GPU", "GPU_INDEX", "GPU_NAME", "HDR", "HDR_GAME_NITS", "HDR_HUE",
     "HDR_PEAK_NITS", "HDR_UI_NITS", "HIGHFPS_FIX", "INPUT", "INPUT_RECORD", "INPUT_SCRIPT", "ROUTE_CONTROL", "LANG", "LIB_PREBUILD",
     "LIB_PREBUILD_KEEP", "LIB_PREBUILD_THREADS", "LOCALE", "LOD_GUARD", "LSTICK_DEADZONE", "MEMORY", "MENU_LANG", "MENU_SOUND_VOLUME", "MENU_TEST",
@@ -100,7 +100,7 @@ static const struct { const char *key, *section; } sections[] = {
     {"BIND_SKIP", "performance"}, {"SHADER_MEMO", "performance"}, {"PIPE_MEMO", "performance"}, {"TEX_MEMO", "performance"}, {"DESC_TEMPLATE", "performance"},
     {"PUSH_SKIP", "performance"}, {"SPLIT_DRAWS", "performance"}, {"SPLIT_US", "performance"}, {"VK_VALIDATION", "performance"},
     {"VK_DYN_VERTEX", "performance"}, {"VK_DYN_A2C", "performance"}, {"VK_SUBGROUP_PIN", "performance"},
-    {"TRACE", "diagnostics"}, {"FLIGHT", "diagnostics"}, {"PASS_CRUMBS", "diagnostics"}, {"FLIGHT_SPIKE_MS", "diagnostics"},
+    {"TRACE", "diagnostics"}, {"FLIGHT", "diagnostics"}, {"PASS_CRUMBS", "diagnostics"}, {"FLIGHT_SPIKE_MS", "diagnostics"}, {"REPORT", "diagnostics"},
     {"WB_FENCE_LIMIT", "diagnostics"}, {"WB_MERGE", "diagnostics"}, {"WB_EXACT", "diagnostics"},
     {"MV_SURVEY", "diagnostics"},
 };
@@ -185,6 +185,7 @@ static const CfgMeta metas[] = {
     {"VK_NOOPT", "0", "0|1", RESTART},   // vk_pipeline.c noopt_flag
     // diagnostics
     {"TRACE", "", NULL, RESTART}, {"FLIGHT", "0", "0|1", RESTART}, {"FLIGHT_SPIKE_MS", "100", "0..60000", RESTART},
+    {"REPORT", "1", "0|1", RESTART},   // report.c: F8 saves a bug report zip
     {"WB_FENCE_LIMIT", "65536", "0..1073741824", RESTART}, {"WB_MERGE", "1", "0|1", RESTART}, {"WB_EXACT", "1", "0|1", RESTART},
     {"PASS_CRUMBS", "", "0|1", RESTART},   // vk_crumbs.c pass marks; unset: VK_AMD_buffer_marker only
     {"INPUT_RECORD", "", NULL, RESTART},
