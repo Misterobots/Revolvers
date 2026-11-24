@@ -139,6 +139,16 @@ def discover(mod):
     tin = (tgt >= 0) & (tgt < n)
     tw = np.where(tin, w[np.clip(tgt, 0, n - 1)], 0)
     entry = tin & ((tw == 0xD503233F) | (tw == 0xD503237F) | (tw == 0xD503245F) | (tw == 0xD50324DF))
+    # Nor do switch cases sit right after UDF padding, and a jump table's anchor-to-`br` path never crosses padding:
+    # `adr x4, fn; ...; b tail; udf; udf; fn: ...; br x2` is a callback, not a switch. That shape left Orbitals'
+    # main+0x452f240 (ship Dodge) and main+0x4101cb0 unlifted.
+    entry |= tin & (tgt > 0) & (w[np.clip(tgt - 1, 0, n - 1)] == 0)
+    udf_idx = idx(w == 0)
+    nu = np.searchsorted(udf_idx, adr)
+    hu = has_br & (nu < len(udf_idx))
+    udf_before_br = np.zeros(len(adr), dtype=bool)
+    udf_before_br[hu] = udf_idx[nu[hu]] < br[nxt[hu]]
+    entry |= udf_before_br
     near &= ~entry
     adr = adr[~near]
     adr_bytes = pc0 + adr * 4 + imm21(adr)
