@@ -2,7 +2,7 @@
 ; Contains ZERO Switch 2 game code or assets; requires user's own .NUP or extracted exefs/romfs folder.
 
 #define MyAppName "Orbitals"
-#define MyAppVersion "1.0"
+#define MyAppVersion "1.1"
 #define MyAppExeName "orbitals.exe"
 #define StageDir "stage"
 
