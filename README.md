@@ -46,6 +46,21 @@ A clean, **build-from-dump** Windows installer and build kit for running **Orbit
 
 ---
 
+## RecompLauncher
+
+Revolvers ships a `stage/recomplauncher.json` manifest for [RecompLauncher](https://recomplauncher.com/sdk). The player picks their own Orbitals Digital Deluxe `.nup`; the launcher's one-time setup (`kit/tools/recomplauncher_prepare.py`) builds the game from it, the same as the installer, and then prepares the shaders so the first play does not stop to translate them.
+
+**Shader preparation.** Orbitals keeps its shaders in its Unreal Engine 5 IoStore container, Oodle-compressed. `kit/tools/ue_shaders.py` reads them from the player's own files, using the game's own decoder through `orbitals.exe --oodle-serve` (`kit/tools/oodle_find.py` locates it in `main`). It joins them with the shader list in `kit/tools/data/orbitals/`, which holds code hashes, bind states and pipeline states recorded in play and no game code. Then it runs `--prepare-shaders` and `--prewarm`, which build every recorded shader and pipeline into the caches.
+
+**Updating the shader list** from a build that has been played further (do this before a release):
+
+```powershell
+python stage\kit\tools\ue_shaders.py <build> --strip stage\kit\tools\data\orbitals\shader-inputs.bin
+copy <build>\shader-answers.bin stage\kit\tools\data\orbitals\
+copy <build>\pipeline-keys.bin stage\kit\tools\data\orbitals\
+```
+
+**Release zip** (`Orbitals-v<version>-Windows-x64.zip`): `recomplauncher.json`, `nx2navi.ini` and the contents of `sidecars/` at the top, and `kit/` without `*.bak*` files. Never include game files. Setup runs with the translator settings in the manifest's `prepare.env`, which must match `start.env`, because the shader cache is keyed by them.
 ## License & Notices
 
 See [LICENSE](LICENSE), [LICENSE-ADDITIONS](LICENSE-ADDITIONS), and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

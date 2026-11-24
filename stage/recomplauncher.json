@@ -1,0 +1,109 @@
+{
+  "$schema": "https://recomplauncher.com/schema/recomplauncher.json",
+  "format": 1,
+  "name": "Orbitals Deluxe",
+  "inputs": [
+    {
+      "id": "game",
+      "label": "Orbitals Digital Deluxe (.nup)",
+      "formats": [{ "type": "file", "extensions": ["nup"] }]
+    }
+  ],
+  "start": {
+    "program": ["orbitals.exe"],
+    "args": ["--exefs", "{install}/exefs", "--romfs", "{install}/romfs"],
+    "env": {
+      "NX2NAVI_RETYPE": "1",
+      "NX2NAVI_RETYPE_CS": "1",
+      "NX2NAVI_XLATE_LOWER_STAGES": "vs,cs,ps",
+      "NX2NAVI_XLATE_ID": "nxx-raw10-ps74fix",
+      "NX2NAVI_XLATE_NXX": "vs,cs,ps",
+      "NX2NAVI_XLATE_NXX_RAW": "1"
+    }
+  },
+  "prepare": {
+    "label": "Building Orbitals from your game file",
+    "program": ["python"],
+    "args": ["{install}/kit/tools/recomplauncher_prepare.py", "--nup", "{input:game}", "--out", "{install}"],
+    "env": {
+      "NX2NAVI_RETYPE": "1",
+      "NX2NAVI_RETYPE_CS": "1",
+      "NX2NAVI_XLATE_LOWER_STAGES": "vs,cs,ps",
+      "NX2NAVI_XLATE_ID": "nxx-raw10-ps74fix",
+      "NX2NAVI_XLATE_NXX": "vs,cs,ps",
+      "NX2NAVI_XLATE_NXX_RAW": "1"
+    },
+    "done": ["{install}/orbitals.exe", "{install}/build-provenance.json", "{install}/shader-prepared.bin"]
+  },
+  "config": [
+    {
+      "id": "main",
+      "format": "ini",
+      "file": "{install}/nx2navi.ini",
+      "new": {
+        "display.fullscreen": "1",
+        "display.upscaler": "fsr",
+        "frame rate.fps_limit": "30",
+        "language.lang": "en-US"
+      }
+    }
+  ],
+  "settings": [
+    {
+      "id": "fullscreen",
+      "label": "Fullscreen",
+      "group": "Display",
+      "choices": [
+        { "label": "On", "set": { "display.fullscreen": "1" } },
+        { "label": "Off", "set": { "display.fullscreen": "0" } }
+      ]
+    },
+    {
+      "id": "upscaler",
+      "label": "Upscaler",
+      "group": "Display",
+      "choices": [
+        { "label": "FSR", "set": { "display.upscaler": "fsr" } },
+        { "label": "Off", "set": { "display.upscaler": "off" } }
+      ]
+    },
+    {
+      "id": "sharpness",
+      "label": "Sharpness",
+      "group": "Display",
+      "slider": { "key": "display.sharpness", "min": 0, "max": 100, "step": 5, "format": "{value}%" }
+    },
+    {
+      "id": "hdr",
+      "label": "HDR",
+      "group": "Display",
+      "choices": [
+        { "label": "Off", "set": { "display.hdr": "0" } },
+        { "label": "On", "set": { "display.hdr": "1" } }
+      ]
+    },
+    {
+      "id": "fps",
+      "label": "Frame rate limit",
+      "group": "Frame rate",
+      "choices": [
+        { "label": "30 fps", "set": { "frame rate.fps_limit": "30" } },
+        { "label": "60 fps", "set": { "frame rate.fps_limit": "60" } }
+      ]
+    },
+    {
+      "id": "overlay",
+      "label": "Performance overlay",
+      "group": "Advanced",
+      "choices": [
+        { "label": "FPS", "set": { "display.perf_overlay": "fps" } },
+        { "label": "Off", "set": { "display.perf_overlay": "off" } }
+      ]
+    }
+  ],
+  "groups": [{ "id": "Advanced", "advanced": true }],
+  "saves": ["profile"],
+  "system": {
+    "windows": { "version": "10" }
+  }
+}
