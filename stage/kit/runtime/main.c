@@ -612,6 +612,8 @@ int main(int argc, char **argv) {
     if (!strcmp(mode, "--probe-movie")) return probe_movie();
     if (!strcmp(mode, "--prepare-shaders")) return vk_pipeline_prepare_shaders();
     if (!strcmp(mode, "--warm-shaders")) return vk_pipeline_warm_shaders();
+    if (!strcmp(mode, "--oodle-serve")) return oodle_serve();
+    if (!strcmp(mode, "--prewarm")) return vk_pipeline_prewarm_only();
     if (!strcmp(mode, "--boot")) { cfg.boot = 1; rt_boot(); return 0; }
     return usage(argv[0]);
 }

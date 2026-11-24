@@ -3762,6 +3762,22 @@ void vk_pipeline_autosave(void) {
         rt_log("vk_pipeline: cannot start the autosave thread; the cache is saved at exit only");
 }
 
+void vk_pipeline_shutdown(void);
+
+// --prewarm: the boot prewarm on its own, then exit (tools/recomplauncher_prepare.py, after the shader preparation):
+// every stored input the pipeline keys name is translated and every recorded pipeline built into the shader cache and
+// pipeline-cache.bin, so the first start finds them ready instead of translating them on the boot screen.
+int vk_pipeline_prewarm_only(void) {
+    vk_pipeline_async_enable();
+    vk_pipeline_prewarm();
+    if (!P.ready) {
+        fprintf(stderr, "prewarm: no Vulkan device\n");
+        return 1;
+    }
+    vk_pipeline_shutdown();   // drains the workers and saves pipeline-cache.bin
+    return 0;
+}
+
 void vk_pipeline_shutdown(void) {
     if (!P.ready) return;
     lb_stop();

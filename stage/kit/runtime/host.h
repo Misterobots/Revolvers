@@ -352,3 +352,5 @@ int probe_vkmem(void), probe_vkexec(void), probe_astc(void);                 // 
 int probe_movie(void);                                     // movie_probe.c: host VP9 movie::Decoder on one RomFS movie
 int vk_pipeline_prepare_shaders(void);                     // vk_pipeline.c: --prepare-shaders (tools/prepare_shaders.py)
 int vk_pipeline_warm_shaders(void);                        // vk_pipeline.c: --warm-shaders (tools/build_game.py)
+int oodle_serve(void);                                     // oodle_serve.c: --oodle-serve (tools/ue_shaders.py)
+int vk_pipeline_prewarm_only(void);                        // vk_pipeline.c: --prewarm (tools/recomplauncher_prepare.py)
